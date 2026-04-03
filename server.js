@@ -1,92 +1,140 @@
 const express = require('express');
-const { Pool } = require('pg');
-const bodyParser = require('body-parser');
+const path = require('path');
 const cors = require('cors');
-require('dotenv').config();
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static('public'));
-
+// PostgreSQL connection - NO SSL for Railway internal database
 const pool = new Pool({
-  user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || 'postgres',
-  host: process.env.PGHOST || 'localhost',
-  port: process.env.PGPORT || 5432,
-  database: process.env.PGDATABASE || 'todos_db',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL
 });
 
-async function initDatabase() {
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Initialize database
+async function initDb() {
+  const client = await pool.connect();
   try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS todos (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, description TEXT, completed BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS todos (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        completed BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
     console.log('Database initialized');
-  } catch (err) {
-    console.error('DB error:', err);
+  } finally {
+    client.release();
   }
 }
 
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// GET /api/todos
 app.get('/api/todos', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM todos ORDER BY created_at DESC');
-    res.json({status: 'success', data: result.rows, timestamp: new Date().toISOString()});
+    res.json(result.rows);
   } catch (err) {
-    res.status(500).json({status: 'error', message: 'Failed to fetch todos', error: err.message});
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch todos' });
   }
 });
 
+// POST /api/todos
 app.post('/api/todos', async (req, res) => {
-  const { title, description } = req.body;
-  if (!title || title.trim() === '') {
-    return res.status(400).json({status: 'error', message: 'Title is required'});
+  const { title } = req.body;
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: 'Title is required' });
   }
   try {
-    const result = await pool.query('INSERT INTO todos (title, description) VALUES ($1, $2) RETURNING *', [title, description || '']);
-    res.status(201).json({status: 'success', data: result.rows[0], message: 'Todo created', timestamp: new Date().toISOString()});
+    const result = await pool.query(
+      'INSERT INTO todos (title) VALUES ($1) RETURNING *',
+      [title.trim()]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({status: 'error', message: 'Failed to create todo', error: err.message});
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create todo' });
   }
 });
 
-app.put('/api/todos/:id', async (req, res) => {
+// PATCH /api/todos/:id
+app.patch('/api/todos/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, completed } = req.body;
+  const { completed, title } = req.body;
+  
   try {
-    const result = await pool.query('UPDATE todos SET title = COALESCE($1, title), description = COALESCE($2, description), completed = COALESCE($3, completed), updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *', [title, description, completed, id]);
-    if (result.rows.length === 0) return res.status(404).json({status: 'error', message: 'Todo not found'});
-    res.json({status: 'success', data: result.rows[0], message: 'Todo updated', timestamp: new Date().toISOString()});
+    let query = 'UPDATE todos SET ';
+    const values = [];
+    let paramCount = 1;
+    
+    if (completed !== undefined) {
+      query += `completed = $${paramCount}`;
+      values.push(completed);
+      paramCount++;
+    }
+    
+    if (title !== undefined && title.trim()) {
+      if (paramCount > 1) query += ', ';
+      query += `title = $${paramCount}`;
+      values.push(title.trim());
+      paramCount++;
+    }
+    
+    query += ` WHERE id = $${paramCount} RETURNING *`;
+    values.push(id);
+    
+    const result = await pool.query(query, values);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+    res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({status: 'error', message: 'Failed to update todo', error: err.message});
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update todo' });
   }
 });
 
+// DELETE /api/todos/:id
 app.delete('/api/todos/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM todos WHERE id = $1 RETURNING *', [id]);
-    if (result.rows.length === 0) return res.status(404).json({status: 'error', message: 'Todo not found'});
-    res.json({status: 'success', message: 'Todo deleted', data: result.rows[0], timestamp: new Date().toISOString()});
+    const result = await pool.query('DELETE FROM todos WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+    res.status(204).send();
   } catch (err) {
-    res.status(500).json({status: 'error', message: 'Failed to delete todo', error: err.message});
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete todo' });
   }
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime()});
+// SPA fallback
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  initDatabase();
-});
-
-process.on('SIGTERM', () => {
-  console.log('Shutting down...');
-  server.close(() => {
-    pool.end();
-    process.exit(0);
+// Start server
+initDb().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
 });
