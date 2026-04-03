@@ -1,1 +1,384 @@
-FULL_HTML_CONTENT
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Tasks Pro</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --purple-start: #667eea;
+      --purple-end: #764ba2;
+      --white: #ffffff;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --green-500: #22c55e;
+      --red-400: #f87171;
+      --red-500: #ef4444;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 40px rgba(102,126,234,0.18), 0 4px 16px rgba(0,0,0,0.08);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --transition: 200ms ease;
+
+      --bg: var(--gray-50);
+      --card-bg: var(--white);
+      --text-primary: var(--gray-900);
+      --text-secondary: var(--gray-700);
+      --text-muted: var(--gray-500);
+      --text-placeholder: var(--gray-400);
+      --border: var(--gray-200);
+      --border-light: var(--gray-100);
+      --input-bg: var(--white);
+      --item-bg: var(--white);
+      --item-done-bg: var(--gray-50);
+    }
+
+    html.dark {
+      --bg: #1a1a1a;
+      --card-bg: #2d2d2d;
+      --text-primary: #f5f5f5;
+      --text-secondary: #e0e0e0;
+      --text-muted: #a0a0a0;
+      --text-placeholder: #707070;
+      --border: #444444;
+      --border-light: #3a3a3a;
+      --input-bg: #383838;
+      --item-bg: #2d2d2d;
+      --item-done-bg: #252525;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 0 60px;
+      color: var(--text-primary);
+      line-height: 1.6;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    .header {
+      width: 100%;
+      background: linear-gradient(135deg, var(--purple-start) 0%, var(--purple-end) 100%);
+      padding: 40px 20px 64px;
+      text-align: center;
+      position: relative;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: rgba(255,255,255,0.9);
+      font-size: 1rem;
+      margin-bottom: 20px;
+    }
+
+    .btn-theme {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: var(--white);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background var(--transition);
+    }
+
+    .btn-theme:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 600px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      margin-top: -38px;
+      padding: 28px 24px 24px;
+      position: relative;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .input-row input {
+      flex: 1;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 1rem;
+      color: var(--text-primary);
+      background: var(--input-bg);
+      outline: none;
+    }
+
+    .input-row input:focus {
+      border-color: var(--purple-start);
+    }
+
+    .btn-add {
+      background: linear-gradient(135deg, var(--purple-start), var(--purple-end));
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 12px 22px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-add:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .btn-add:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .todo-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 40px;
+      margin-bottom: 20px;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 14px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border-light);
+      background: var(--item-bg);
+    }
+
+    .todo-item:hover {
+      border-color: var(--border);
+    }
+
+    .todo-item.completed {
+      background: var(--item-done-bg);
+    }
+
+    .todo-checkbox {
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+      background: var(--input-bg);
+    }
+
+    .todo-item.completed .todo-checkbox {
+      background: linear-gradient(135deg, var(--purple-start), var(--purple-end));
+      border-color: transparent;
+    }
+
+    .todo-checkbox svg {
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity var(--transition), transform var(--transition);
+    }
+
+    .todo-item.completed .todo-checkbox svg {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .todo-text {
+      flex: 1;
+      font-size: 0.97rem;
+      color: var(--text-secondary);
+    }
+
+    .todo-item.completed .todo-text {
+      color: var(--text-placeholder);
+      text-decoration: line-through;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--gray-400);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .todo-item:hover .btn-delete {
+      opacity: 1;
+    }
+
+    .btn-delete:hover {
+      color: var(--red-500);
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <button class="btn-theme" id="btn-theme">🌙 Dark</button>
+    <h1>My Tasks Pro</h1>
+    <p>Stay organized and productive</p>
+  </header>
+
+  <main style="width:100%;max-width:600px;padding:0 16px;">
+    <div class="card">
+      <div class="input-row">
+        <input type="text" id="todo-input" placeholder="Add a new todo..." />
+        <button class="btn-add" id="btn-add">Add</button>
+      </div>
+
+      <ul class="todo-list" id="todo-list"></ul>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+      ? 'http://localhost:3000/api'
+      : '/api';
+
+    let todos = [];
+
+    async function fetchTodos() {
+      try {
+        const res = await fetch(API_BASE + '/todos');
+        if (!res.ok) throw new Error('Failed to fetch');
+        todos = await res.json();
+        render();
+      } catch (err) {
+        console.error('Error fetching todos:', err);
+      }
+    }
+
+    async function addTodo(title) {
+      try {
+        const res = await fetch(API_BASE + '/todos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title })
+        });
+        if (!res.ok) throw new Error('Failed to add');
+        const todo = await res.json();
+        todos.unshift(todo);
+        render();
+      } catch (err) {
+        console.error('Error adding todo:', err);
+      }
+    }
+
+    async function toggleTodo(id, completed) {
+      try {
+        const res = await fetch(API_BASE + '/todos/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed })
+        });
+        if (!res.ok) throw new Error('Failed to update');
+        await fetchTodos();
+      } catch (err) {
+        console.error('Error toggling todo:', err);
+      }
+    }
+
+    async function deleteTodo(id) {
+      try {
+        const res = await fetch(API_BASE + '/todos/' + id, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Failed to delete');
+        todos = todos.filter(t => t.id !== id);
+        render();
+      } catch (err) {
+        console.error('Error deleting todo:', err);
+      }
+    }
+
+    function render() {
+      const list = document.getElementById('todo-list');
+      list.innerHTML = '';
+      todos.forEach(todo => {
+        const li = document.createElement('li');
+        li.className = 'todo-item' + (todo.completed ? ' completed' : '');
+        li.innerHTML = `
+          <button class="todo-checkbox" onclick="toggleTodo(${todo.id}, ${!todo.completed})">
+            <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4L4 7.5L10 1" stroke="white" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+          <span class="todo-text">${todo.title}</span>
+          <button class="btn-delete" onclick="deleteTodo(${todo.id})">✕</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById('btn-add').addEventListener('click', () => {
+      const input = document.getElementById('todo-input');
+      if (input.value.trim()) {
+        addTodo(input.value.trim());
+        input.value = '';
+      }
+    });
+
+    document.getElementById('btn-theme').addEventListener('click', () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.documentElement.classList.remove('dark');
+        document.getElementById('btn-theme').textContent = '🌙 Dark';
+        localStorage.theme = 'light';
+      } else {
+        document.documentElement.classList.add('dark');
+        document.getElementById('btn-theme').textContent = '☀️ Light';
+        localStorage.theme = 'dark';
+      }
+    });
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.getElementById('btn-theme').textContent = '☀️ Light';
+    }
+
+    fetchTodos();
+  </script>
+</body>
+</html>
