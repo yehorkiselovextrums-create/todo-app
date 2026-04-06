@@ -6,7 +6,6 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// PostgreSQL connection - NO SSL for Railway internal database
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
@@ -15,12 +14,10 @@ pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
 });
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize database
 async function initDb() {
   const client = await pool.connect();
   try {
@@ -38,12 +35,10 @@ async function initDb() {
   }
 }
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// GET /api/todos
 app.get('/api/todos', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM todos ORDER BY created_at DESC');
@@ -54,7 +49,6 @@ app.get('/api/todos', async (req, res) => {
   }
 });
 
-// POST /api/todos
 app.post('/api/todos', async (req, res) => {
   const { title } = req.body;
   if (!title || !title.trim()) {
@@ -72,7 +66,6 @@ app.post('/api/todos', async (req, res) => {
   }
 });
 
-// PATCH /api/todos/:id
 app.patch('/api/todos/:id', async (req, res) => {
   const { id } = req.params;
   const { completed, title } = req.body;
@@ -109,7 +102,6 @@ app.patch('/api/todos/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/todos/:id
 app.delete('/api/todos/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -124,12 +116,10 @@ app.delete('/api/todos/:id', async (req, res) => {
   }
 });
 
-// SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start server
 initDb().then(() => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
@@ -138,3 +128,4 @@ initDb().then(() => {
   console.error('Failed to initialize database:', err);
   process.exit(1);
 });
+// Dark mode header update
