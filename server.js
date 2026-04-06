@@ -128,4 +128,3 @@ initDb().then(() => {
   console.error('Failed to initialize database:', err);
   process.exit(1);
 });
-// Dark mode header update
