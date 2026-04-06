@@ -1,1 +1,159 @@
-UPDATED_HTML_WITH_DARK_HEADER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Tasks Pro</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --purple-start: #667eea;
+      --purple-end: #764ba2;
+      --white: #ffffff;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --green-500: #22c55e;
+      --red-400: #f87171;
+      --red-500: #ef4444;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 40px rgba(102,126,234,0.18), 0 4px 16px rgba(0,0,0,0.08);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --transition: 200ms ease;
+      --bg: var(--gray-50);
+      --card-bg: var(--white);
+      --text-primary: var(--gray-900);
+      --text-secondary: var(--gray-700);
+      --text-muted: var(--gray-500);
+      --text-placeholder: var(--gray-400);
+      --border: var(--gray-200);
+      --border-light: var(--gray-100);
+      --input-bg: var(--white);
+      --item-bg: var(--white);
+      --item-done-bg: var(--gray-50);
+      --skeleton-from: var(--gray-100);
+      --skeleton-to: var(--gray-50);
+      --header-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --header-text: var(--white);
+      --header-subtitle: rgba(255,255,255,0.75);
+    }
+    html.dark {
+      --bg: #1a1a1a;
+      --card-bg: #2d2d2d;
+      --text-primary: #f5f5f5;
+      --text-secondary: #e0e0e0;
+      --text-muted: #a0a0a0;
+      --text-placeholder: #707070;
+      --border: #444444;
+      --border-light: #3a3a3a;
+      --input-bg: #383838;
+      --item-bg: #2d2d2d;
+      --item-done-bg: #252525;
+      --skeleton-from: #3a3a3a;
+      --skeleton-to: #333333;
+      --shadow-lg: 0 10px 40px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3);
+      --header-bg: linear-gradient(135deg, #1e1e2e 0%, #0f0f1e 100%);
+      --header-text: #e0e0e0;
+      --header-subtitle: rgba(224,224,224,0.6);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0 0 60px; color: var(--text-primary); line-height: 1.6; transition: background var(--transition), color var(--transition); }
+    .header { width: 100%; background: var(--header-bg); padding: 40px 20px 64px; text-align: center; position: relative; transition: background var(--transition); }
+    .header h1 { font-size: 2rem; font-weight: 700; color: var(--header-text); letter-spacing: -0.5px; transition: color var(--transition); }
+    .header .subtitle { margin-top: 6px; color: var(--header-subtitle); font-size: 0.95rem; transition: color var(--transition); }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <button class="btn-theme" id="btn-theme">🌙 Dark</button>
+    <h1>My Tasks Pro</h1>
+    <p class="subtitle">Organize your day, achieve your goals.</p>
+  </header>
+  <main><div class="card"><div class="input-row"><input type="text" id="todo-input" placeholder="What needs to be done?" /><button class="btn-add" id="btn-add">Add</button></div><ul class="todo-list" id="todo-list"></ul></div></main>
+  <script>
+    const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:3000/api' : '/api';
+    const api = {
+      async fetchTodos() { return request('GET', '/todos'); },
+      async createTodo(title) { return request('POST', '/todos', { title }); },
+      async toggleTodo(id, completed) { return request('PATCH', `/todos/${id}`, { completed }); },
+      async deleteTodo(id) { return request('DELETE', `/todos/${id}`); },
+    };
+    async function request(method, path, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      const res = await fetch(API_BASE + path, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (res.status === 204) return null;
+      return res.json();
+    }
+    let todos = [], filter = 'all', loading = true;
+    const todoInput = document.getElementById('todo-input');
+    const btnAdd = document.getElementById('btn-add');
+    const todoList = document.getElementById('todo-list');
+    function render() {
+      todoList.innerHTML = '';
+      if (loading) return todoList.innerHTML = '<li>Loading...</li>';
+      todos.forEach(todo => {
+        const li = document.createElement('li');
+        li.innerHTML = `<input type="checkbox" ${todo.completed ? 'checked' : ''} onchange="toggleTodo(${todo.id})"> ${todo.title} <button onclick="deleteTodo(${todo.id})">Del</button>`;
+        todoList.appendChild(li);
+      });
+    }
+    async function handleAdd() {
+      if (todoInput.value.trim()) {
+        await api.createTodo(todoInput.value.trim());
+        todoInput.value = '';
+        await init();
+      }
+    }
+    async function toggleTodo(id) {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        await api.toggleTodo(id, !todo.completed);
+        await init();
+      }
+    }
+    async function deleteTodo(id) {
+      await api.deleteTodo(id);
+      await init();
+    }
+    async function init() {
+      loading = true;
+      render();
+      try {
+        todos = await api.fetchTodos();
+      } catch (err) {
+        console.error(err);
+        todos = [];
+      }
+      loading = false;
+      render();
+    }
+    btnAdd.addEventListener('click', handleAdd);
+    todoInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleAdd(); });
+    const btnTheme = document.getElementById('btn-theme');
+    btnTheme.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.documentElement.classList.remove('dark');
+        localStorage.theme = 'light';
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.theme = 'dark';
+      }
+    });
+    if (localStorage.theme === 'dark') document.documentElement.classList.add('dark');
+    init();
+  </script>
+</body>
+</html>
